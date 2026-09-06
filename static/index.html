@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PriceTracker — E-Commerce Price Monitoring Dashboard</title>
+  <meta name="description" content="Laravel-style clean price tracking dashboard with automated scraping and price drop alerts.">
+  
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  
+  <!-- Top Classic Laravel Navigation -->
+  <nav class="laravel-navbar">
+    <div class="nav-container">
+      <div class="nav-brand-section">
+        <a href="/" class="laravel-logo">
+          <!-- Laravel Red Icon -->
+          <div class="laravel-icon-box">
+            <i class="fa-solid fa-chart-line"></i>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">Price<strong>Tracker</strong></span>
+            <span class="brand-badge">v1.0.0</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="nav-menu">
+        <button class="btn btn-laravel-primary" id="openAddModalBtn">
+          <i class="fa-solid fa-plus"></i> Track Product
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Page Header / Breadcrumb Bar -->
+  <div class="page-subhead">
+    <div class="app-container">
+      <div class="subhead-content">
+        <div>
+          <h2 class="page-title">Dashboard Overview</h2>
+          <p class="page-desc">Monitor e-commerce prices, trigger scraper updates, and view historical price trends.</p>
+        </div>
+        <div class="subhead-actions">
+          <button class="btn btn-default btn-sm" id="refreshAllBtn">
+            <i class="fa-solid fa-arrows-rotate" id="refreshAllIcon"></i> Check All Prices
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Application Container -->
+  <div class="app-container main-content">
+
+    <!-- Stat Widgets (Laravel Classic Metric Cards) -->
+    <section class="laravel-stats-grid">
+      <div class="stat-box">
+        <div class="stat-content">
+          <span class="stat-heading">Total Tracked</span>
+          <h3 class="stat-number" id="metricTotalProducts">0</h3>
+          <span class="stat-subtext"><i class="fa-solid fa-cube text-primary"></i> Live database items</span>
+        </div>
+        <div class="stat-icon-wrapper icon-bg-red">
+          <i class="fa-solid fa-layer-group"></i>
+        </div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-content">
+          <span class="stat-heading">Target Deals Reached</span>
+          <h3 class="stat-number text-success" id="metricDealsHit">0</h3>
+          <span class="stat-subtext"><i class="fa-solid fa-arrow-down text-success"></i> Ready to buy</span>
+        </div>
+        <div class="stat-icon-wrapper icon-bg-green">
+          <i class="fa-solid fa-tags"></i>
+        </div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-content">
+          <span class="stat-heading">Price Updates Logged</span>
+          <h3 class="stat-number" id="metricTotalHistory">0</h3>
+          <span class="stat-subtext"><i class="fa-solid fa-clock-rotate-left text-info"></i> Recorded history points</span>
+        </div>
+        <div class="stat-icon-wrapper icon-bg-blue">
+          <i class="fa-solid fa-database"></i>
+        </div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-content">
+          <span class="stat-heading">Active Watchers</span>
+          <h3 class="stat-number" id="metricActiveAlerts">0</h3>
+          <span class="stat-subtext"><i class="fa-solid fa-bell text-warning"></i> Monitoring status</span>
+        </div>
+        <div class="stat-icon-wrapper icon-bg-yellow">
+          <i class="fa-solid fa-bell"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Panel / Card -->
+    <div class="laravel-card">
+      <div class="card-header-bar">
+        <div class="search-filter-wrapper">
+          <div class="laravel-search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" placeholder="Search by product name or store URL..." autocomplete="off">
+            <button id="clearSearchBtn" class="clear-btn" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <div class="laravel-filter-group">
+            <button class="filter-btn active" data-filter="all">All Products</button>
+            <button class="filter-btn" data-filter="deals">🎯 At / Below Target</button>
+            <button class="filter-btn" data-filter="active">Active</button>
+          </div>
+        </div>
+
+        <div class="card-count-label">
+          <span class="badge-pill" id="visibleCountBadge">0 Products</span>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingState" class="panel-state-box" style="display: none;">
+        <div class="classic-spinner"></div>
+        <p>Loading tracked products...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="panel-state-box" style="display: none;">
+        <div class="empty-folder-icon"><i class="fa-solid fa-folder-open"></i></div>
+        <h3>No Tracked Products Found</h3>
+        <p>You haven't added any products to monitor yet.</p>
+        <button class="btn btn-laravel-primary btn-sm" id="emptyAddBtn">
+          <i class="fa-solid fa-plus"></i> Track First Product
+        </button>
+      </div>
+
+      <!-- Products Grid -->
+      <div class="products-grid" id="productsGrid">
+        <!-- Injected dynamically by JavaScript -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="laravel-footer">
+    <div class="app-container footer-content">
+      <p>PriceTracker &bull; Built with <strong>FastAPI</strong>, <strong>SQLAlchemy</strong>, and <strong>BeautifulSoup</strong>.</p>
+      <p class="footer-links">
+        <a href="/docs" target="_blank"><i class="fa-solid fa-book"></i> Swagger API Docs</a> &bull;
+        <a href="/health" target="_blank"><i class="fa-solid fa-heart-pulse"></i> Health Status</a> &bull;
+        <a href="/info" target="_blank"><i class="fa-solid fa-code"></i> API Info</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Add Product Modal -->
+  <div class="modal-overlay" id="productModal" style="display: none;">
+    <div class="laravel-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalHeading"><i class="fa-solid fa-circle-plus text-primary"></i> Add New Product to Track</h3>
+        <button class="close-x" id="closeModalBtn">&times;</button>
+      </div>
+
+      <form id="productForm">
+        <div class="modal-body">
+          <input type="hidden" id="editProductId" value="">
+
+          <div class="form-group">
+            <label for="productName">Product Name <span class="text-danger">*</span></label>
+            <input type="text" id="productName" class="form-control" required placeholder="e.g. Sony WH-1000XM5 Wireless Headphones" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="productUrl">Product Store URL <span class="text-danger">*</span></label>
+            <input type="url" id="productUrl" class="form-control" required placeholder="https://www.example.com/product/item-123" autocomplete="off">
+            <small class="form-text">Paste the full web link (Amazon, Flipkart, Walmart, etc.)</small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-half">
+              <label for="targetPrice">Target Alert Price <span class="text-danger">*</span></label>
+              <input type="number" step="0.01" min="0.01" id="targetPrice" class="form-control" required placeholder="e.g. 299.99" autocomplete="off">
+            </div>
+
+            <div class="form-group col-half">
+              <label for="productCurrency">Currency</label>
+              <select id="productCurrency" class="form-control">
+                <option value="USD">USD ($)</option>
+                <option value="INR">INR (₹)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="cancelModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-laravel-primary" id="saveProductBtn">
+            <span id="saveBtnText"><i class="fa-solid fa-check"></i> Save &amp; Scrape</span>
+            <div class="spinner-sm" id="saveBtnSpinner" style="display: none;"></div>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Price History Modal with Chart.js -->
+  <div class="modal-overlay" id="historyModal" style="display: none;">
+    <div class="laravel-modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="historyProductTitle">Price History</h3>
+          <p class="modal-subtitle" id="historyProductSub"></p>
+        </div>
+        <button class="close-x" id="closeHistoryModalBtn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Quick Summary Bar -->
+        <div class="history-summary-bar">
+          <div class="summary-item">
+            <span class="label">Target Threshold:</span>
+            <span class="val" id="histTargetPrice">-</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Lowest Recorded:</span>
+            <span class="val text-success" id="histLowestPrice">-</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Latest Price:</span>
+            <span class="val" id="histCurrentPrice">-</span>
+          </div>
+        </div>
+
+        <!-- Chart Container -->
+        <div class="chart-box">
+          <canvas id="priceHistoryChart"></canvas>
+        </div>
+
+        <!-- Table View -->
+        <h4 class="history-table-title"><i class="fa-solid fa-table-list"></i> Recorded Price Entries</h4>
+        <div class="history-table-scroll">
+          <table class="laravel-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Price</th>
+                <th>Status vs Target</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" onclick="closeHistoryModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- App Script -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
